@@ -13,8 +13,8 @@ import collections
 import logging
 import pathlib, os
 import argparse
-
-
+from tqdm import tqdm
+import time
 import statistics
 from beir import util, LoggingHandler
 from beir.retrieval.search.dense import DenseRetrievalExactSearch as DRES
@@ -31,44 +31,31 @@ import pandas as pd
 if __name__ == "__main__":
 
   argparser = argparse.ArgumentParser()
-
   argparser.add_argument("--rct_model_name", type=str)
   argparser.add_argument("--sbert_model_name", type=str)
   argparser.add_argument('--dev_file', type=str)
   argparser.add_argument('--corpus_file', type=str)
-  argparser.add_argument("--access_token", type=str)
-  
+  argparser.add_argument("--access_token", type=str)  
 
   args, unknown = argparser.parse_known_args()
 
   rct_model_name = args.rct_model_name              ######### pubmed200krct model
   sbert_model_name = args.sbert_model_name          ######### sbert model  
   dev_file = args.dev_file
-  corpus_file = args.corpus_file            #Max length for passages. Increasing it, requires more GPU memory
+  corpus_file = args.corpus_file            
   access_token = args.access_token
 
-  # Load our embedding model
-  #logging.info("Use pretrained PubMed200kRCT model")
-  #access_token='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'
   model_1 = AutoModelForSequenceClassification.from_pretrained(rct_model_name, use_auth_token=access_token)
   tokenizer = AutoTokenizer.from_pretrained(rct_model_name, use_auth_token=access_token)
   pipe = TextClassificationPipeline(model=model_1, tokenizer=tokenizer, return_all_scores=True)
-  #if args.use_pre_trained_model:
-    #logging.info("Use pretrained SBERT model")
   model_sbert = SentenceTransformer(sbert_model_name)
-
-  #"pritamdeka/BioBert-PubMed200kRCT"
-
-
-
 
   #### Just some code to print debug information to stdout
   logging.basicConfig(format='%(asctime)s - %(message)s',
                       datefmt='%Y-%m-%d %H:%M:%S',
                       level=logging.INFO,
                       handlers=[LoggingHandler()])
-  #### /print debug information to stdout
-  
+  #### /print debug information to stdout  
 
   all_sent=[]
   all_claims=[]
@@ -124,8 +111,7 @@ if __name__ == "__main__":
   out_dir = os.path.join(os.getcwd(), "datasets")
   data_path = util.download_and_unzip(url, out_dir)
   print("Dataset downloaded here: {}".format(data_path))
-  from beir.datasets.data_loader import GenericDataLoader
-
+  
   data_path = "datasets/scifact"
   corpus, queries, qrels = GenericDataLoader(data_path).load(split="test") # or split = "train" or "dev"
   dict_filter = lambda x, y: dict([ (i,x[i]) for i in x if i in set(y) ])
@@ -154,7 +140,7 @@ if __name__ == "__main__":
   corpus_1 = {doc['doc_id']: doc for doc in jsonlines.open(corpus_file)}
   y_list=z_list
   final_sentence_list=[]
-  for el in y_list: 
+  for el in tqdm(y_list, desc = 'Sentence Extraction'): 
     abs_list=[corpus_1[e]['abstract'] for e in el]
     all_sentence_list=[]
     for elements in abs_list:
@@ -168,10 +154,7 @@ if __name__ == "__main__":
       all_sentence_list.append(sentence_list)
     flat_list = [item for sublist in all_sentence_list for item in sublist]
     final_sentence_list.append(flat_list)
-  print(final_sentence_list)
-
-
-
+  print("The final list of result/conclusion sentences:", final_sentence_list)
   #model_sbert = SentenceTransformer('sentence-transformers/stsb-mpnet-base-v2')
   #model_sbert = SentenceTransformer('/content/drive/MyDrive/fine_tuned_models/AllNLI_STSb/SCITAIL/training_multi-task-learning2022-03-25_00-19-17')
   top_n=3
@@ -189,14 +172,10 @@ if __name__ == "__main__":
       arr = np.asarray(distances)
       keywords = [candidates[index] for index in distances.argsort()[0][-top_n:]] 
       final_ranked_sentence_list.append(keywords)
-  print(final_ranked_sentence_list)
-
-
-  print(qids_list)
-  print(gold_sentence_list)
+  print("The final ranked sentences list:", final_ranked_sentence_list)
+  print("Gold sentence list:", gold_sentence_list)
   precision_list=[]
   recall_list=[]
-
   for elem,elem1 in zip(final_ranked_sentence_list,gold_sentence_list):
     len_elem=(len(elem))
     len_all=len(elem1)
@@ -213,7 +192,7 @@ if __name__ == "__main__":
       recall_list.append(recall)  
   mean_precision=(statistics.mean(precision_list))
   mean_recall=(statistics.mean(recall_list))
-  print(mean_precision)
-  print(mean_recall)
-  print((2*mean_precision*mean_recall)/(mean_precision+mean_recall))
-
+  f_score = (2*mean_precision*mean_recall)/(mean_precision+mean_recall)
+  print("Precision:", mean_precision)
+  print("Recall:", mean_recall)
+  print("F-1 score:", f_score)
