@@ -44,9 +44,9 @@ if __name__ == "__main__":
   corpus_file = args.corpus_file            
   access_token = args.access_token
 
-  model_1 = AutoModelForSequenceClassification.from_pretrained(rct_model_name, use_auth_token=access_token)
+  model_rct = AutoModelForSequenceClassification.from_pretrained(rct_model_name, use_auth_token=access_token)
   tokenizer = AutoTokenizer.from_pretrained(rct_model_name, use_auth_token=access_token)
-  pipe = TextClassificationPipeline(model=model_1, tokenizer=tokenizer, return_all_scores=True, device=0, batch_size=512)
+  pipe = TextClassificationPipeline(model=model_rct, tokenizer=tokenizer, return_all_scores=True, device=0, batch_size=512)
   model_sbert = SentenceTransformer(sbert_model_name)
 
   #### Just some code to print debug information to stdout
