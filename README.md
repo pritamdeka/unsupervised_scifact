@@ -14,7 +14,7 @@ After that install the necessary requirements using the following.
 After that run the [precision_recall.py](https://github.com/pritamdeka/unsupervised_scifact/blob/main/precision_recall.py) file by using the following:
 
 ```
-!python path_to_precision_recall.py \
+!python precision_recall.py \
   --rct_model_name pritamdeka/BioBert-PubMed200kRCT \
   --sbert_model_name any_sentence-transformers_model_from_Huggingface \
   --dev_file /path_to/claims_dev.jsonl \
