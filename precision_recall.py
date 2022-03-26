@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
   model_1 = AutoModelForSequenceClassification.from_pretrained(rct_model_name, use_auth_token=access_token)
   tokenizer = AutoTokenizer.from_pretrained(rct_model_name, use_auth_token=access_token)
-  pipe = TextClassificationPipeline(model=model_1, tokenizer=tokenizer, return_all_scores=True)
+  pipe = TextClassificationPipeline(model=model_1, tokenizer=tokenizer, return_all_scores=True, device=0, batch_size=256)
   model_sbert = SentenceTransformer(sbert_model_name)
 
   #### Just some code to print debug information to stdout
