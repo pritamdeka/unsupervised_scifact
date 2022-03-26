@@ -2,7 +2,6 @@ from beir import util, LoggingHandler
 
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from transformers import AutoTokenizer, AutoModel
 from sentence_transformers import models, losses
 from sentence_transformers import SentencesDataset, LoggingHandler, SentenceTransformer
 from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
@@ -47,7 +46,7 @@ if __name__ == "__main__":
 
   model_1 = AutoModelForSequenceClassification.from_pretrained(rct_model_name, use_auth_token=access_token)
   tokenizer = AutoTokenizer.from_pretrained(rct_model_name, use_auth_token=access_token)
-  pipe = TextClassificationPipeline(model=model_1, tokenizer=tokenizer, return_all_scores=True, device=0, batch_size=256)
+  pipe = TextClassificationPipeline(model=model_1, tokenizer=tokenizer, return_all_scores=True, device=0, batch_size=512)
   model_sbert = SentenceTransformer(sbert_model_name)
 
   #### Just some code to print debug information to stdout
@@ -59,11 +58,9 @@ if __name__ == "__main__":
 
   all_sent=[]
   all_claims=[]
-  all_stance=[]
   corpus = {doc['doc_id']: doc for doc in jsonlines.open(corpus_file)}
   for claim in jsonlines.open(dev_file):
     all_claims.append(claim['claim'])
-    stance_list=[]
     sent_list=[]
     for doc_id in claim["cited_doc_ids"]:    
       doc = corpus[int(doc_id)]
@@ -78,27 +75,14 @@ if __name__ == "__main__":
         evidence_sentence_idx = {s for es in evidence for s in es['sentences']}
         sentence_list=[abstract_sentences[edx] for edx in evidence_sentence_idx]
         sent_list.append(sentence_list)
-        stances = set([es["label"] for es in evidence])
-        still_include = False
-        if "SUPPORT" in stances:
-          stance = "SUPPORT"          
-        elif "CONTRADICT" in stances:
-          stance = "CONTRADICT"         
-        else:
-          stance = "NEI" 
-        stance_list.append(stance)
-    all_sent.append(sent_list)
-    all_stance.append(stance_list)   
-  df=pd.DataFrame((zip(all_claims, all_sent, all_stance)),
-                columns=['claims','sentences', 'stance'])
+    all_sent.append(sent_list)  
+  df=pd.DataFrame((zip(all_claims, all_sent)),
+                columns=['claims','sentences'])
 
   with jsonlines.open(dev_file, 'r') as jsonl_f:
     lst = [obj for obj in jsonl_f]
-    id_list = []
-    claim_list= []
-    for l in lst:
-      id_list.append(l['id'])
-      claim_list.append(l['claim'])
+    id_list = [l['id'] for l in lst]
+    claim_list= [l['claim'] for l in lst]
     mydict=dict(zip(id_list,claim_list))
     df['id'] = id_list
   df=df[df['sentences'].map(lambda d: len(d)) > 0]
@@ -133,12 +117,12 @@ if __name__ == "__main__":
   qrels_dict=dict_filter(qrels, qids_list)
   qrels_values_list=list(qrels_dict.values())
   qrels_id_list=[list(j.keys()) for j in qrels_values_list]
-  z_list=[[ast.literal_eval(i) for i in k] for k in overall_docid_list]
+  retrieved_id_list=[[ast.literal_eval(i) for i in k] for k in overall_docid_list]
   k_list=[[ast.literal_eval(i) for i in k] for k in qrels_id_list]
 
 
   corpus_1 = {doc['doc_id']: doc for doc in jsonlines.open(corpus_file)}
-  y_list=z_list
+  y_list=retrieved_id_list
   final_sentence_list=[]
   for el in tqdm(y_list, desc = 'Sentence Extraction'): 
     abs_list=[corpus_1[e]['abstract'] for e in el]
@@ -190,9 +174,9 @@ if __name__ == "__main__":
     else:
       recall=float(temp/len_all)
       recall_list.append(recall)  
-  mean_precision=(statistics.mean(precision_list))
-  mean_recall=(statistics.mean(recall_list))
-  f_score = (2*mean_precision*mean_recall)/(mean_precision+mean_recall)
-  print("Precision:", mean_precision)
-  print("Recall:", mean_recall)
-  print("F-1 score:", f_score)
+  mean_precision=(statistics.mean(precision_list))*100
+  mean_recall=(statistics.mean(recall_list))*100
+  f_score = ((2*mean_precision*mean_recall)/(mean_precision+mean_recall))*100
+  print("Precision %:", mean_precision)
+  print("Recall %:", mean_recall)
+  print("F-1 score %:", f_score)
