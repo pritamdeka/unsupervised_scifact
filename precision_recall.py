@@ -8,6 +8,7 @@ from sentence_transformers.evaluation import EmbeddingSimilarityEvaluator
 from sentence_transformers.readers import *
 import numpy as np
 import ast
+import math
 import collections
 import logging
 import pathlib, os
@@ -34,7 +35,9 @@ if __name__ == "__main__":
   argparser.add_argument("--sbert_model_name", type=str)
   argparser.add_argument('--dev_file', type=str)
   argparser.add_argument('--corpus_file', type=str)
-  argparser.add_argument("--access_token", type=str)  
+  argparser.add_argument("--access_token", type=str)
+  argparser.add_argument("--top_n_sentences", type=str, default="top_3") 
+  argparser.add_argument("--top_n_abstracts", type=str, default="top_3")   
 
   args, unknown = argparser.parse_known_args()
 
@@ -43,6 +46,19 @@ if __name__ == "__main__":
   dev_file = args.dev_file
   corpus_file = args.corpus_file            
   access_token = args.access_token
+  top_n_sentences = args.top_n_sentences
+  top_n_abstracts = args.top_n_abstracts
+  
+    
+  def rmsValue(num_list,n):
+    square=0
+    mean=0.0
+    root=0.0
+    for i in range(0,n):
+      square += (num_list[i]**2)
+    mean = (square/ (float)(n))
+    root = math.sqrt(mean)
+    return root
 
   model_rct = AutoModelForSequenceClassification.from_pretrained(rct_model_name, use_auth_token=access_token)
   tokenizer = AutoTokenizer.from_pretrained(rct_model_name, use_auth_token=access_token)
@@ -111,8 +127,14 @@ if __name__ == "__main__":
   docid_list_sorted=[dict(sorted(al.items(), key=lambda x: x[1], reverse=True)) for al in docid_list]
   overall_docid_list=[]
   for z in docid_list_sorted:
+    if(top_n_abstracts == "top_3"):
+      top_abst = 3
+    elif(top_n_abstracts == "top_5"):
+      top_abst = 5
+    elif(top_n_abstracts == "top_10"):
+      top_abst = 10
     temp_list=list(z.keys())
-    temp_list=temp_list[:3]
+    temp_list=temp_list[:top_abst]
     overall_docid_list.append(temp_list)
   qrels_dict=dict_filter(qrels, qids_list)
   qrels_values_list=list(qrels_dict.values())
@@ -139,9 +161,7 @@ if __name__ == "__main__":
     flat_list = [item for sublist in all_sentence_list for item in sublist]
     final_sentence_list.append(flat_list)
   print("The final list of result/conclusion sentences:", final_sentence_list)
-  #model_sbert = SentenceTransformer('sentence-transformers/stsb-mpnet-base-v2')
-  #model_sbert = SentenceTransformer('/content/drive/MyDrive/fine_tuned_models/AllNLI_STSb/SCITAIL/training_multi-task-learning2022-03-25_00-19-17')
-  top_n=3
+  
   claim_list = list(small_dict.values())
   final_ranked_sentence_list=[]
   for i in range(len(qids_list)):
@@ -150,10 +170,30 @@ if __name__ == "__main__":
     if candidates==[]:
       keywords = []
       final_ranked_sentence_list.append(keywords)
-    else: 
+    else:       
       candidate_embeddings = model_sbert.encode(candidates)
       distances = cosine_similarity(doc_embedding, candidate_embeddings)
       arr = np.asarray(distances)
+      if(top_n_sentences == "top_1"):
+        top_n=1
+      elif(top_n_sentences == "top_2"):
+        top_n=2
+      elif(top_n_sentences == "top_3"):
+        top_n=3
+      elif(top_n_sentences == "top_4"):
+        top_n=4
+      elif(top_n_sentences == "top_5"):
+        top_n=5
+      elif(top_n_sentences == "rms"): 
+        num_list=[z for i in arr for z in i if z>0 ]
+        n=len(num_list)
+        z=(rmsValue(num_list,n))
+        top_n=((arr > z).sum())
+      elif(top_n_sentences == "am"):
+        num_list=[z for i in arr for z in i if z>0 ]
+        n=len(num_list)
+        z=statistics.mean(num_list)
+        top_n=((arr > z).sum())
       keywords = [candidates[index] for index in distances.argsort()[0][-top_n:]] 
       final_ranked_sentence_list.append(keywords)
   print("The final ranked sentences list:", final_ranked_sentence_list)
@@ -176,7 +216,7 @@ if __name__ == "__main__":
       recall_list.append(recall)  
   mean_precision=(statistics.mean(precision_list))*100
   mean_recall=(statistics.mean(recall_list))*100
-  f_score = ((2*mean_precision*mean_recall)/(mean_precision+mean_recall))*100
+  f_score = (2*mean_precision*mean_recall)/(mean_precision+mean_recall)
   print("Precision %:", mean_precision)
   print("Recall %:", mean_recall)
   print("F-1 score %:", f_score)
