@@ -17,8 +17,8 @@ After that run the [precision_recall.py](https://github.com/pritamdeka/unsupervi
 !python precision_recall.py \
   --rct_model_name pritamdeka/BioBert-PubMed200kRCT \
   --sbert_model_name any_sentence-transformers_model_from_Huggingface \
-  --dev_file /path_to/claims_dev.jsonl \
-  --corpus_file /path_to/corpus.jsonl \
+  --dev_file /content/unsupervised_scifact/claims_dev.jsonl \
+  --corpus_file /content/unsupervised_scifact/corpus.jsonl \
   --top_n_abstracts top_3 \
   --top_n_sentences top_3 \
   --access_token for_HF_private_repo
